@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply transition-colors duration-300 ease-in-out;
+  }
+  
+  .dark {
+    @apply bg-gradient-dark text-white;
+  }
+  
+  .light {
+    @apply bg-gradient-light text-gray-800;
+  }
+}
+
+@layer components {
+  .nba-btn {
+    @apply px-4 py-2 font-futuristic font-bold tracking-wider uppercase transition-all duration-300 
+           border-2 border-transparent rounded-lg hover:scale-105 focus:outline-none;
+  }
+  
+  .nba-btn-primary {
+    @apply nba-btn bg-neon-blue text-white hover:shadow-neon-blue dark:hover:shadow-neon-blue;
+  }
+  
+  .team-logo {
+    @apply transition-all duration-300 rounded-full hover:scale-110 cursor-pointer;
+  }
+  
+  .team-logo-container {
+    @apply flex flex-col items-center justify-center p-4 transition-all duration-300 rounded-xl
+           hover:bg-white/10 dark:hover:bg-black/30;
+  }
+  
+  .dark .team-logo-container:hover {
+    @apply shadow-neon-blue;
+  }
+  
+  .light .team-logo-container:hover {
+    @apply shadow-neon-purple;
+  }
+  
+  .player-card {
+    @apply flex flex-col items-center p-6 transition-all duration-300 rounded-xl
+           bg-white/80 dark:bg-black/30 hover:shadow-lg;
+  }
+  
+  .dark .player-card:hover {
+    @apply shadow-neon-blue;
+  }
+  
+  .light .player-card:hover {
+    @apply shadow-neon-purple;
+  }
+  
+  .player-image {
+    @apply w-32 h-32 mb-4 overflow-hidden transition-all duration-300 border-4 border-gray-300 rounded-full
+           dark:border-gray-700 hover:scale-105;
+  }
+  
+  .dark .player-image {
+    @apply hover:border-neon-blue;
+  }
+  
+  .light .player-image {
+    @apply hover:border-neon-purple;
+  }
+}
+
+/* Animated background for dark mode */
+.dark .animated-bg {
+  background: linear-gradient(-45deg, #111827, #0a0a1e, #1a103c, #0d253f);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+/* Animated background for light mode */
+.light .animated-bg {
+  background: linear-gradient(-45deg, #e0e7ff, #bfdbfe, #ddd6fe, #c7d2fe);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+} 
