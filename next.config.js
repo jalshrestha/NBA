@@ -1,16 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  output: 'export',
   images: {
-    domains: ['cdn.nba.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.nba.com',
-        pathname: '/**',
-      },
-    ],
+    unoptimized: true,
   },
+  basePath: '/NBA',
+  assetPrefix: '/NBA/',
 }
 
 module.exports = nextConfig 
