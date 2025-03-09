@@ -1,9 +1,10 @@
-name: Deploy to GitHub Pages
+# This workflow is disabled in favor of nextjs.yml
+# Keeping it for reference
+
+name: Deploy to GitHub Pages (Disabled)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch: # Only manual trigger
 
 jobs:
   deploy:
