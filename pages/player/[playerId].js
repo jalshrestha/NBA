@@ -6,6 +6,9 @@ import Image from 'next/image';
 import ThemeToggle from '../../components/ThemeToggle';
 import axios from 'axios';
 
+// Get API URL from environment variables
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+
 export default function PlayerPage() {
   const router = useRouter();
   const { playerId } = router.query;
@@ -13,67 +16,98 @@ export default function PlayerPage() {
   const [player, setPlayer] = useState(null);
   const [currentStats, setCurrentStats] = useState(null);
   const [historicalStats, setHistoricalStats] = useState([]);
+  const [playerBio, setPlayerBio] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [wikiInfo, setWikiInfo] = useState('');
+  const [imageError, setImageError] = useState(false);
+
+  const fetchPlayerData = async (forceRefresh = false) => {
+    if (!playerId) return;
+    
+    try {
+      setLoading(true);
+      if (forceRefresh) setRefreshing(true);
+      
+      // Fetch player data from our backend API
+      const playerResponse = await axios.get(`${API_URL}/players`);
+      const players = playerResponse.data;
+      const playerData = players.find(p => p.id === parseInt(playerId));
+      
+      if (playerData) {
+        setPlayer({
+          id: playerId,
+          name: playerData.name,
+          position: playerData.position,
+          height: playerData.height,
+          weight: playerData.weight,
+          jersey_number: playerData.jersey_number,
+          team_id: playerData.team_id,
+          team_name: playerData.team_name
+        });
+        
+        // Fetch player stats with force_refresh parameter if needed
+        const statsResponse = await axios.get(`${API_URL}/player/${playerId}/stats${forceRefresh ? '?force_refresh=true' : ''}`);
+        const statsData = statsResponse.data;
+        
+        if (statsData) {
+          if (statsData.current_season_stats) {
+            setCurrentStats(statsData.current_season_stats);
+          }
+          if (statsData.career_stats) {
+            setHistoricalStats(statsData.career_stats || []);
+          }
+          if (statsData.bio) {
+            setPlayerBio(statsData.bio);
+          }
+        }
+      } else {
+        setError('Player not found');
+      }
+      
+      setLoading(false);
+      if (forceRefresh) setRefreshing(false);
+    } catch (err) {
+      console.error('Error fetching player data:', err);
+      setError('Failed to load player data. Please try again later.');
+      setLoading(false);
+      if (forceRefresh) setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     // Only fetch when we have a playerId (after hydration)
     if (!playerId) return;
-
-    const fetchPlayerData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch player data from our backend API
-        const playerResponse = await axios.get(`http://localhost:5001/api/players`);
-        const players = playerResponse.data;
-        const playerData = players.find(p => p.id === parseInt(playerId));
-        
-        if (playerData) {
-          setPlayer({
-            id: playerId,
-            name: playerData.name,
-            position: playerData.position,
-            height: playerData.height,
-            weight: playerData.weight,
-            jersey_number: playerData.jersey_number,
-            team_id: playerData.team_id,
-            team_name: playerData.team_name
-          });
-          
-          // Fetch player stats
-          const statsResponse = await axios.get(`http://localhost:5001/api/player/${playerId}/stats`);
-          const statsData = statsResponse.data;
-          
-          if (statsData && statsData.current_season_stats) {
-            setCurrentStats(statsData.current_season_stats);
-            setHistoricalStats(statsData.career_stats || []);
-          }
-        } else {
-          setError('Player not found');
-        }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching player data:', err);
-        setError('Failed to load player data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
     fetchPlayerData();
   }, [playerId]);
 
+  // Function to handle refreshing player data
+  const handleRefreshData = () => {
+    fetchPlayerData(true);
+  };
+
   // Function to handle missing player images
-  const handleImageError = (e) => {
-    e.target.src = 'https://cdn.nba.com/headshots/nba/latest/1040x760/logoman.png';
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  // Function to format stat values
+  const formatStat = (value) => {
+    if (value === undefined || value === null) return '-';
+    return parseFloat(value).toFixed(1);
+  };
+
+  // Function to format percentage values
+  const formatPercentage = (value) => {
+    if (value === undefined || value === null) return '-';
+    return `${(parseFloat(value) * 100).toFixed(1)}%`;
   };
 
   return (
-    <div className="min-h-screen animated-bg">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-gray-900 dark:to-blue-900 animate-gradient-shift">
       <Head>
         <title>
           {player ? `${player.name} | NBA Stats Tracker` : 'Player | NBA Stats Tracker'}
@@ -86,33 +120,15 @@ export default function PlayerPage() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <header className="flex items-center justify-between mb-12">
+        <header className="flex items-center justify-between mb-8">
           <Link href="/" className="no-underline">
-            <h1 className="text-3xl md:text-4xl font-futuristic font-bold tracking-wider bg-clip-text text-transparent 
-                        bg-gradient-to-r from-neon-blue to-neon-purple animate-pulse-slow">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-wider bg-clip-text text-transparent 
+                        bg-gradient-to-r from-blue-500 to-purple-600 animate-pulse-slow">
               NBASTATS
             </h1>
           </Link>
 
           <div className="flex items-center space-x-4">
-            {/* Search Input */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search players..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="py-2 pl-10 pr-4 w-48 md:w-64 rounded-full bg-white/10 dark:bg-black/30 
-                         border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 
-                         focus:ring-neon-blue dark:focus:ring-neon-purple"
-              />
-              <span className="absolute inset-y-0 left-3 flex items-center">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-            </div>
-          
             {/* Theme toggle */}
             <ThemeToggle />
           </div>
@@ -122,41 +138,80 @@ export default function PlayerPage() {
         <main>
           {loading ? (
             <div className="flex items-center justify-center h-96">
-              <div className="text-2xl font-futuristic text-neon-blue dark:text-neon-purple animate-pulse">
+              <div className="text-2xl text-blue-500 dark:text-blue-400 animate-pulse flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
                 Loading player data...
               </div>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-96">
-              <div className="text-2xl font-futuristic text-red-500">{error}</div>
+              <div className="text-2xl text-red-500">{error}</div>
             </div>
           ) : (
             <>
               {/* Player Header */}
-              <div className="flex flex-col md:flex-row items-center justify-center mb-12">
-                <div className="relative w-40 h-40 md:w-56 md:h-56 mb-4 md:mb-0 md:mr-8 overflow-hidden rounded-full border-4 border-neon-blue dark:border-neon-purple">
-                  <Image
-                    src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`}
-                    alt={player.name}
-                    fill
-                    className="object-cover"
-                    onError={handleImageError}
-                  />
-                </div>
-                <div className="text-center md:text-left">
-                  <h2 className="text-3xl md:text-5xl font-futuristic font-bold mb-2">
-                    {player.name}
-                  </h2>
-                  <div className="flex flex-wrap justify-center md:justify-start gap-4 mb-4">
-                    <div className="px-3 py-1 rounded-full bg-white/20 dark:bg-black/30 text-sm">
-                      #{player.jersey_number} | {player.position}
+              <div className="relative mb-8 overflow-hidden rounded-2xl bg-white/30 dark:bg-black/30 backdrop-blur-sm shadow-lg">
+                {/* Background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/30 to-purple-500/30 dark:from-blue-600/20 dark:to-purple-800/20"></div>
+                
+                <div className="relative flex flex-col md:flex-row items-center p-6 md:p-8">
+                  {/* Player image */}
+                  <div className="relative w-48 h-48 md:w-56 md:h-56 mb-6 md:mb-0 md:mr-8 overflow-hidden rounded-full border-4 border-white/50 dark:border-gray-800/50 shadow-xl">
+                    <Image
+                      src={imageError ? 
+                        'https://cdn.nba.com/headshots/nba/latest/1040x760/logoman.png' : 
+                        `https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`
+                      }
+                      alt={player.name}
+                      fill
+                      className="object-cover"
+                      onError={handleImageError}
+                    />
+                  </div>
+                  
+                  {/* Player info */}
+                  <div className="text-center md:text-left">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-2 text-gray-800 dark:text-white">
+                      {player.name}
+                    </h2>
+                    <div className="flex flex-wrap justify-center md:justify-start gap-3 mb-4">
+                      <div className="px-3 py-1 rounded-full bg-blue-500/20 dark:bg-blue-500/30 text-blue-800 dark:text-blue-200 text-sm font-medium">
+                        {player.position}
+                      </div>
+                      <div className="px-3 py-1 rounded-full bg-gray-500/20 dark:bg-gray-500/30 text-gray-800 dark:text-gray-200 text-sm font-medium">
+                        {player.height} • {player.weight}
+                      </div>
+                      <Link href={`/team/${player.team_id}`} className="px-3 py-1 rounded-full bg-purple-500/20 dark:bg-purple-500/30 text-purple-800 dark:text-purple-200 text-sm font-medium hover:bg-purple-500/30 dark:hover:bg-purple-500/40 transition-colors">
+                        {player.team_name}
+                      </Link>
                     </div>
-                    <div className="px-3 py-1 rounded-full bg-white/20 dark:bg-black/30 text-sm">
-                      {player.height} • {player.weight}
-                    </div>
-                    <Link href={`/team/${player.team_id}`} className="px-3 py-1 rounded-full bg-neon-blue/20 dark:bg-neon-purple/30 text-sm hover:bg-neon-blue/40 dark:hover:bg-neon-purple/50 transition-colors">
-                      {player.team_name}
-                    </Link>
+                    
+                    {/* Refresh button */}
+                    <button 
+                      onClick={handleRefreshData}
+                      disabled={refreshing}
+                      className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {refreshing ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Refreshing Stats...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                          </svg>
+                          Refresh Live Stats
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -165,9 +220,9 @@ export default function PlayerPage() {
               <div className="flex border-b border-gray-200 dark:border-gray-700 mb-8 overflow-x-auto">
                 <button
                   onClick={() => setActiveTab('overview')}
-                  className={`px-4 py-2 font-medium text-sm md:text-base transition-colors ${
+                  className={`px-6 py-3 font-medium text-base transition-colors ${
                     activeTab === 'overview'
-                      ? 'border-b-2 border-neon-blue dark:border-neon-purple text-neon-blue dark:text-neon-purple'
+                      ? 'border-b-2 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -175,9 +230,9 @@ export default function PlayerPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('stats')}
-                  className={`px-4 py-2 font-medium text-sm md:text-base transition-colors ${
+                  className={`px-6 py-3 font-medium text-base transition-colors ${
                     activeTab === 'stats'
-                      ? 'border-b-2 border-neon-blue dark:border-neon-purple text-neon-blue dark:text-neon-purple'
+                      ? 'border-b-2 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -185,9 +240,9 @@ export default function PlayerPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`px-4 py-2 font-medium text-sm md:text-base transition-colors ${
+                  className={`px-6 py-3 font-medium text-base transition-colors ${
                     activeTab === 'history'
-                      ? 'border-b-2 border-neon-blue dark:border-neon-purple text-neon-blue dark:text-neon-purple'
+                      ? 'border-b-2 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -196,76 +251,142 @@ export default function PlayerPage() {
               </div>
 
               {/* Tab Content */}
-              <div className="bg-white/5 dark:bg-black/20 backdrop-blur-sm rounded-xl p-6">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg p-6">
                 {activeTab === 'overview' && (
-                  <div className="space-y-6">
+                  <div className="space-y-8">
                     <div>
-                      <h3 className="text-2xl font-futuristic font-bold mb-4">Player Bio</h3>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                        {wikiInfo}
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg">
-                        <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Age</h4>
-                        <p className="text-xl font-semibold">{player.age}</p>
-                      </div>
-                      <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg">
-                        <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Country</h4>
-                        <p className="text-xl font-semibold">{player.country}</p>
-                      </div>
-                      <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg">
-                        <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">College</h4>
-                        <p className="text-xl font-semibold">{player.college}</p>
-                      </div>
-                      <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg">
-                        <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Draft</h4>
-                        <p className="text-xl font-semibold">
-                          {player.draft_year} • Round {player.draft_round} • Pick {player.draft_number}
-                        </p>
+                      <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Player Bio</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Age</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.age || '25'}
+                          </p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Country</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.country || 'USA'}
+                          </p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">College</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.school || 'Not available'}
+                          </p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Draft</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.draft_year ? 
+                              `${playerBio.draft_year} • Round ${playerBio.draft_round || '1'} • Pick ${playerBio.draft_number || '1'}` : 
+                              'Undrafted'
+                            }
+                          </p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Experience</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.season_exp ? 
+                              `${playerBio.season_exp} ${parseInt(playerBio.season_exp) === 1 ? 'year' : 'years'}` : 
+                              'Rookie'
+                            }
+                          </p>
+                        </div>
+                        <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm">
+                          <h4 className="text-sm text-gray-500 dark:text-gray-400 mb-1">Birthday</h4>
+                          <p className="text-xl font-semibold text-gray-800 dark:text-white">
+                            {playerBio?.birthdate || 'Not available'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     
                     {currentStats && (
                       <div>
-                        <h3 className="text-2xl font-futuristic font-bold mb-4">Season Averages</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.pts ? currentStats.pts.toFixed(1) : '-'}
+                        <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Season Averages</h3>
+                        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex justify-between">
+                          <span>Stats are per-game averages for {currentStats.season} ({currentStats.games_played} games played)</span>
+                          <span>Team: {currentStats.team}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatStat(currentStats.pts)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">PTS</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">POINTS</p>
                           </div>
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.reb ? currentStats.reb.toFixed(1) : '-'}
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatStat(currentStats.reb)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">REB</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">REBOUNDS</p>
                           </div>
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.ast ? currentStats.ast.toFixed(1) : '-'}
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatStat(currentStats.ast)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">AST</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">ASSISTS</p>
                           </div>
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.stl ? currentStats.stl.toFixed(1) : '-'}
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatStat(currentStats.stl)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">STL</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">STEALS</p>
                           </div>
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.blk ? currentStats.blk.toFixed(1) : '-'}
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatStat(currentStats.blk)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">BLK</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">BLOCKS</p>
                           </div>
-                          <div className="bg-white/10 dark:bg-black/30 p-4 rounded-lg text-center">
-                            <p className="text-3xl font-bold text-neon-blue dark:text-neon-purple">
-                              {currentStats.fg_pct ? (currentStats.fg_pct * 100).toFixed(1) : '-'}%
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-5 rounded-lg shadow-sm text-center transform transition-all hover:scale-105">
+                            <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                              {formatPercentage(currentStats.fg_pct)}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">FG%</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">FG%</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Advanced stats section */}
+                    {currentStats && (
+                      <div>
+                        <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Advanced Metrics</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">Games Played</div>
+                            <div className="text-2xl font-semibold mt-1">{currentStats.games_played || '-'}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">Minutes</div>
+                            <div className="text-2xl font-semibold mt-1">{formatStat(currentStats.min)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">3PT%</div>
+                            <div className="text-2xl font-semibold mt-1">{formatPercentage(currentStats.fg3_pct)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">FT%</div>
+                            <div className="text-2xl font-semibold mt-1">{formatPercentage(currentStats.ft_pct)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">FG Made-Att</div>
+                            <div className="text-2xl font-semibold mt-1">{formatStat(currentStats.fg_m)}-{formatStat(currentStats.fg_a)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">3PT Made-Att</div>
+                            <div className="text-2xl font-semibold mt-1">{formatStat(currentStats.fg3_m)}-{formatStat(currentStats.fg3_a)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">Off. Rating</div>
+                            <div className="text-2xl font-semibold mt-1">{formatStat(currentStats.off_rating)}</div>
+                          </div>
+                          <div className="bg-white/50 dark:bg-gray-700/50 p-4 rounded-lg shadow-sm flex flex-col justify-between">
+                            <div className="text-gray-500 dark:text-gray-400 text-sm">Def. Rating</div>
+                            <div className="text-2xl font-semibold mt-1">{formatStat(currentStats.def_rating)}</div>
                           </div>
                         </div>
                       </div>
@@ -275,192 +396,191 @@ export default function PlayerPage() {
 
                 {activeTab === 'stats' && currentStats && (
                   <div>
-                    <h3 className="text-2xl font-futuristic font-bold mb-4">
-                      {currentStats.season || 'Current'} Season Statistics
+                    <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                      {currentStats.season} Season Stats
                     </h3>
+                    
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-indigo-900 p-6 rounded-xl shadow-md mb-6">
+                      <div className="mb-4">
+                        <div className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 flex justify-between">
+                          <span>Per Game Averages</span>
+                          <span>Games Played: {currentStats.games_played || 0}</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="text-center">
+                          <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">{formatStat(currentStats.pts)}</div>
+                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">PPG</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">{formatStat(currentStats.reb)}</div>
+                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">RPG</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">{formatStat(currentStats.ast)}</div>
+                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">APG</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">{formatPercentage(currentStats.fg_pct)}</div>
+                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-2">FG%</div>
+                        </div>
+                      </div>
+
+                      {currentStats.totals && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <div className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-3">Season Totals</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Total Points:</span> {currentStats.totals.total_points}
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Total Rebounds:</span> {currentStats.totals.total_rebounds}
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Total Assists:</span> {currentStats.totals.total_assists}
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Minutes Played:</span> {currentStats.totals.total_minutes}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left">
+                      <table className="w-full text-sm">
                         <thead>
-                          <tr className="bg-white/10 dark:bg-black/30">
-                            <th className="px-4 py-2 font-medium">GP</th>
-                            <th className="px-4 py-2 font-medium">MIN</th>
-                            <th className="px-4 py-2 font-medium">PTS</th>
-                            <th className="px-4 py-2 font-medium">REB</th>
-                            <th className="px-4 py-2 font-medium">AST</th>
-                            <th className="px-4 py-2 font-medium">STL</th>
-                            <th className="px-4 py-2 font-medium">BLK</th>
-                            <th className="px-4 py-2 font-medium">FG%</th>
-                            <th className="px-4 py-2 font-medium">3P%</th>
-                            <th className="px-4 py-2 font-medium">FT%</th>
-                            <th className="px-4 py-2 font-medium">TO</th>
+                          <tr className="bg-gray-100 dark:bg-gray-700">
+                            <th className="px-4 py-3 text-left">Category</th>
+                            <th className="px-4 py-3 text-right">Value</th>
+                            <th className="px-4 py-3 text-right">Per Game</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr className="border-b border-gray-200 dark:border-gray-700">
-                            <td className="px-4 py-3">{currentStats.games_played || '-'}</td>
-                            <td className="px-4 py-3">{currentStats.min ? currentStats.min.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3 font-bold">{currentStats.pts ? currentStats.pts.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3">{currentStats.reb ? currentStats.reb.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3">{currentStats.ast ? currentStats.ast.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3">{currentStats.stl ? currentStats.stl.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3">{currentStats.blk ? currentStats.blk.toFixed(1) : '-'}</td>
-                            <td className="px-4 py-3">{currentStats.fg_pct ? (currentStats.fg_pct * 100).toFixed(1) : '-'}%</td>
-                            <td className="px-4 py-3">{currentStats.fg3_pct ? (currentStats.fg3_pct * 100).toFixed(1) : '-'}%</td>
-                            <td className="px-4 py-3">{currentStats.ft_pct ? (currentStats.ft_pct * 100).toFixed(1) : '-'}%</td>
-                            <td className="px-4 py-3">{currentStats.turnover ? currentStats.turnover.toFixed(1) : '-'}</td>
+                            <td className="px-4 py-3 font-medium">Games</td>
+                            <td className="px-4 py-3 text-right">{currentStats.games_played}</td>
+                            <td className="px-4 py-3 text-right">-</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Minutes</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.min * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.min)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">Points</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.pts * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.pts)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Field Goals</td>
+                            <td className="px-4 py-3 text-right">{currentStats.fg_m ? `${formatStat(currentStats.fg_m * currentStats.games_played)}-${formatStat(currentStats.fg_a * currentStats.games_played)}` : '-'}</td>
+                            <td className="px-4 py-3 text-right">{currentStats.fg_m ? `${formatStat(currentStats.fg_m)}-${formatStat(currentStats.fg_a)} (${formatPercentage(currentStats.fg_pct)})` : '-'}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">3-Point FG</td>
+                            <td className="px-4 py-3 text-right">{currentStats.fg3_m ? `${formatStat(currentStats.fg3_m * currentStats.games_played)}-${formatStat(currentStats.fg3_a * currentStats.games_played)}` : '-'}</td>
+                            <td className="px-4 py-3 text-right">{currentStats.fg3_m ? `${formatStat(currentStats.fg3_m)}-${formatStat(currentStats.fg3_a)} (${formatPercentage(currentStats.fg3_pct)})` : '-'}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Free Throws</td>
+                            <td className="px-4 py-3 text-right">{currentStats.ft_m ? `${formatStat(currentStats.ft_m * currentStats.games_played)}-${formatStat(currentStats.ft_a * currentStats.games_played)}` : '-'}</td>
+                            <td className="px-4 py-3 text-right">{currentStats.ft_m ? `${formatStat(currentStats.ft_m)}-${formatStat(currentStats.ft_a)} (${formatPercentage(currentStats.ft_pct)})` : '-'}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">Offensive Rebounds</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.oreb * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.oreb)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Defensive Rebounds</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.dreb * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.dreb)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">Total Rebounds</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.reb * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.reb)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Assists</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.ast * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.ast)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">Turnovers</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.turnover * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.turnover)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <td className="px-4 py-3 font-medium">Steals</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.stl * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.stl)}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <td className="px-4 py-3 font-medium">Blocks</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.blk * currentStats.games_played)}</td>
+                            <td className="px-4 py-3 text-right">{formatStat(currentStats.blk)}</td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                    
-                    {currentStats && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                        <div className="bg-white/10 dark:bg-black/30 p-6 rounded-lg">
-                          <h4 className="text-xl font-futuristic font-bold mb-4">Advanced Stats</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">Off Rating</p>
-                              <p className="text-2xl font-bold">
-                                {currentStats.off_rating ? currentStats.off_rating.toFixed(1) : '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">Def Rating</p>
-                              <p className="text-2xl font-bold">
-                                {currentStats.def_rating ? currentStats.def_rating.toFixed(1) : '-'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">Games Started</p>
-                              <p className="text-2xl font-bold">{currentStats.games_started || '-'}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">Net Rating</p>
-                              <p className="text-2xl font-bold">
-                                {currentStats.off_rating && currentStats.def_rating 
-                                  ? (currentStats.off_rating - currentStats.def_rating).toFixed(1) 
-                                  : '-'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white/10 dark:bg-black/30 p-6 rounded-lg">
-                          <h4 className="text-xl font-futuristic font-bold mb-4">Shooting Splits</h4>
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span>Field Goal %</span>
-                                <span>{currentStats.fg_pct ? (currentStats.fg_pct * 100).toFixed(1) : '-'}%</span>
-                              </div>
-                              <div className="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
-                                <div 
-                                  className="bg-neon-blue dark:bg-neon-purple h-2 rounded-full" 
-                                  style={{ width: `${currentStats.fg_pct ? currentStats.fg_pct * 100 : 0}%` }}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span>3-Point %</span>
-                                <span>{currentStats.fg3_pct ? (currentStats.fg3_pct * 100).toFixed(1) : '-'}%</span>
-                              </div>
-                              <div className="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
-                                <div 
-                                  className="bg-neon-blue dark:bg-neon-purple h-2 rounded-full" 
-                                  style={{ width: `${currentStats.fg3_pct ? currentStats.fg3_pct * 100 : 0}%` }}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span>Free Throw %</span>
-                                <span>{currentStats.ft_pct ? (currentStats.ft_pct * 100).toFixed(1) : '-'}%</span>
-                              </div>
-                              <div className="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
-                                <div 
-                                  className="bg-neon-blue dark:bg-neon-purple h-2 rounded-full" 
-                                  style={{ width: `${currentStats.ft_pct ? currentStats.ft_pct * 100 : 0}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 
                 {activeTab === 'history' && (
                   <div>
-                    <h3 className="text-2xl font-futuristic font-bold mb-4">Career Statistics</h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="bg-white/10 dark:bg-black/30">
-                            <th className="px-4 py-2 font-medium">Season</th>
-                            <th className="px-4 py-2 font-medium">Team</th>
-                            <th className="px-4 py-2 font-medium">GP</th>
-                            <th className="px-4 py-2 font-medium">MIN</th>
-                            <th className="px-4 py-2 font-medium">PTS</th>
-                            <th className="px-4 py-2 font-medium">REB</th>
-                            <th className="px-4 py-2 font-medium">AST</th>
-                            <th className="px-4 py-2 font-medium">STL</th>
-                            <th className="px-4 py-2 font-medium">BLK</th>
-                            <th className="px-4 py-2 font-medium">FG%</th>
-                            <th className="px-4 py-2 font-medium">3P%</th>
-                            <th className="px-4 py-2 font-medium">FT%</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentStats && (
-                            <tr className="border-b border-gray-200 dark:border-gray-700 bg-white/5 dark:bg-white/5">
-                              <td className="px-4 py-3">{currentStats.season || '-'}</td>
-                              <td className="px-4 py-3">{player.team_name}</td>
-                              <td className="px-4 py-3">{currentStats.games_played || '-'}</td>
-                              <td className="px-4 py-3">{currentStats.min ? currentStats.min.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3 font-bold">{currentStats.pts ? currentStats.pts.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{currentStats.reb ? currentStats.reb.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{currentStats.ast ? currentStats.ast.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{currentStats.stl ? currentStats.stl.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{currentStats.blk ? currentStats.blk.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{currentStats.fg_pct ? (currentStats.fg_pct * 100).toFixed(1) : '-'}%</td>
-                              <td className="px-4 py-3">{currentStats.fg3_pct ? (currentStats.fg3_pct * 100).toFixed(1) : '-'}%</td>
-                              <td className="px-4 py-3">{currentStats.ft_pct ? (currentStats.ft_pct * 100).toFixed(1) : '-'}%</td>
+                    <h3 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Career History</h3>
+                    
+                    {historicalStats.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-100 dark:bg-gray-700">
+                              <th className="px-4 py-3 text-left">Season</th>
+                              <th className="px-4 py-3 text-left">Team</th>
+                              <th className="px-4 py-3 text-right">GP</th>
+                              <th className="px-4 py-3 text-right">MIN</th>
+                              <th className="px-4 py-3 text-right">PTS</th>
+                              <th className="px-4 py-3 text-right">REB</th>
+                              <th className="px-4 py-3 text-right">AST</th>
+                              <th className="px-4 py-3 text-right">STL</th>
+                              <th className="px-4 py-3 text-right">BLK</th>
+                              <th className="px-4 py-3 text-right">FG%</th>
+                              <th className="px-4 py-3 text-right">3P%</th>
+                              <th className="px-4 py-3 text-right">FT%</th>
                             </tr>
-                          )}
-                          
-                          {historicalStats.map((season, index) => (
-                            <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
-                              <td className="px-4 py-3">{season.season || '-'}</td>
-                              <td className="px-4 py-3">{season.team || '-'}</td>
-                              <td className="px-4 py-3">{season.games_played || '-'}</td>
-                              <td className="px-4 py-3">{season.min ? season.min.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3 font-bold">{season.pts ? season.pts.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{season.reb ? season.reb.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{season.ast ? season.ast.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{season.stl ? season.stl.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{season.blk ? season.blk.toFixed(1) : '-'}</td>
-                              <td className="px-4 py-3">{season.fg_pct ? (season.fg_pct * 100).toFixed(1) : '-'}%</td>
-                              <td className="px-4 py-3">{season.fg3_pct ? (season.fg3_pct * 100).toFixed(1) : '-'}%</td>
-                              <td className="px-4 py-3">{season.ft_pct ? (season.ft_pct * 100).toFixed(1) : '-'}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {historicalStats.map((season, index) => (
+                              <tr 
+                                key={index} 
+                                className={`border-b border-gray-200 dark:border-gray-700 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''}`}
+                              >
+                                <td className="px-4 py-3 font-medium">{season.season}</td>
+                                <td className="px-4 py-3">{season.team}</td>
+                                <td className="px-4 py-3 text-right">{season.games_played}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.min)}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.pts)}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.reb)}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.ast)}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.stl)}</td>
+                                <td className="px-4 py-3 text-right">{formatStat(season.blk)}</td>
+                                <td className="px-4 py-3 text-right">{formatPercentage(season.fg_pct)}</td>
+                                <td className="px-4 py-3 text-right">{formatPercentage(season.fg3_pct)}</td>
+                                <td className="px-4 py-3 text-right">{formatPercentage(season.ft_pct)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-10">
+                        <p className="text-gray-500 dark:text-gray-400">No career history available.</p>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-              
-              {/* Back Button */}
-              <div className="mt-12 text-center">
-                <Link href={`/team/${player.team_id}`} className="nba-btn-primary inline-block mr-4">
-                  Back to Team
-                </Link>
-                <Link href="/" className="nba-btn-primary inline-block">
-                  All Teams
-                </Link>
               </div>
             </>
           )}
@@ -468,7 +588,7 @@ export default function PlayerPage() {
 
         {/* Footer */}
         <footer className="mt-16 py-8 text-center text-sm opacity-70">
-          <p>© {new Date().getFullYear()} NBA Stats Tracker | Futuristic Design</p>
+          <p>© {new Date().getFullYear()} NBA Stats Tracker | Premium Design</p>
         </footer>
       </div>
     </div>
