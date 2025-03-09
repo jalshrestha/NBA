@@ -27,15 +27,6 @@
   🚀 Real-time performance metrics
 </p>
 
-<div align="center">
-  
-  ```diff
-  + NBAPRO SYSTEM v2.5.0 +
-  + ANALYTICS ENGINE RUNNING +
-  + ALL SYSTEMS NOMINAL +
-  ```
-  
-</div>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png" alt="Line">
