@@ -6,6 +6,9 @@ import Image from 'next/image';
 import ThemeToggle from '../../components/ThemeToggle';
 import axios from 'axios';
 
+// Get API URL from environment variables
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+
 export default function TeamPage() {
   const router = useRouter();
   const { teamId } = router.query;
@@ -13,42 +16,61 @@ export default function TeamPage() {
   const [players, setPlayers] = useState([]);
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchTeamData = async (forceRefresh = false) => {
+    if (!teamId) return;
+
+    try {
+      if (!forceRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      
+      // First fetch team details from the teams endpoint
+      const teamsResponse = await axios.get(`${API_URL}/teams`);
+      const teamData = teamsResponse.data.find(t => t.id === parseInt(teamId));
+      
+      if (!teamData) {
+        setError('Team not found');
+        setLoading(false);
+        if (forceRefresh) setRefreshing(false);
+        return;
+      }
+      
+      setTeam(teamData);
+      
+      // Then fetch players for this team with force refresh parameter if needed
+      const endpoint = forceRefresh 
+        ? `${API_URL}/players/team/${teamId}?force_refresh=true` 
+        : `${API_URL}/players/team/${teamId}`;
+      
+      const playersResponse = await axios.get(endpoint);
+      setPlayers(playersResponse.data);
+      
+      setLoading(false);
+      if (forceRefresh) setRefreshing(false);
+    } catch (err) {
+      console.error('Error fetching team data:', err);
+      setError('Failed to load team data. Please try again later.');
+      setLoading(false);
+      if (forceRefresh) setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     // Only fetch when we have a teamId (after hydration)
     if (!teamId) return;
-
-    const fetchTeamData = async () => {
-      try {
-        setLoading(true);
-        
-        // First fetch team details from the teams endpoint
-        const teamsResponse = await axios.get('http://localhost:5001/api/teams');
-        const teamData = teamsResponse.data.find(t => t.id === parseInt(teamId));
-        
-        if (!teamData) {
-          setError('Team not found');
-          setLoading(false);
-          return;
-        }
-        
-        setTeam(teamData);
-        
-        // Then fetch players for this team
-        const playersResponse = await axios.get(`http://localhost:5001/api/players/team/${teamId}`);
-        setPlayers(playersResponse.data);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching team data:', err);
-        setError('Failed to load team data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
     fetchTeamData();
   }, [teamId]);
+
+  // Function to handle refreshing team data
+  const handleRefreshData = () => {
+    fetchTeamData(true);
+  };
 
   // Function to handle missing player images
   const handleImageError = (e) => {
@@ -59,6 +81,11 @@ export default function TeamPage() {
   const filteredPlayers = players.filter(player => 
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Sort players by name instead of jersey number
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="min-h-screen animated-bg">
@@ -121,57 +148,92 @@ export default function TeamPage() {
           ) : (
             <>
               {/* Team Header with Logo */}
-              <div className="flex flex-col md:flex-row items-center justify-center mb-12">
-                <div className="relative w-32 h-32 md:w-40 md:h-40 mb-4 md:mb-0 md:mr-8">
-                  <Image
-                    src={`https://cdn.nba.com/logos/nba/${team.id}/primary/L/logo.svg`}
-                    alt={team.full_name}
-                    fill
-                    className="object-contain"
-                    onError={(e) => {
-                      e.target.src = 'https://cdn.nba.com/logos/nba/fallback.png';
-                    }}
-                  />
+              <div className="flex flex-col md:flex-row items-center justify-between mb-12">
+                <div className="flex flex-col md:flex-row items-center">
+                  <div className="relative w-32 h-32 md:w-40 md:h-40 mb-4 md:mb-0 md:mr-8">
+                    <Image
+                      src={`https://cdn.nba.com/logos/nba/${team.id}/primary/L/logo.svg`}
+                      alt={team.full_name}
+                      fill
+                      className="object-contain"
+                      onError={(e) => {
+                        e.target.src = 'https://cdn.nba.com/logos/nba/fallback.png';
+                      }}
+                    />
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h2 className="text-3xl md:text-5xl font-bold mb-2 text-gray-800 dark:text-white">
+                      {team.full_name}
+                    </h2>
+                    <p className="text-lg opacity-80">
+                      {team.city}, {team.state} • Est. {team.year_founded}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-center md:text-left">
-                  <h2 className="text-3xl md:text-5xl font-futuristic font-bold mb-2">
-                    {team.full_name}
-                  </h2>
-                  <p className="text-lg opacity-80">
-                    {team.city}, {team.state} • Est. {team.year_founded}
-                  </p>
-                </div>
+                
+                {/* Refresh button */}
+                <button 
+                  onClick={handleRefreshData}
+                  disabled={refreshing}
+                  className="mt-4 md:mt-0 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {refreshing ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Refreshing Team Data...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                      </svg>
+                      Refresh Team Data
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Players Grid */}
-              <h3 className="text-2xl font-futuristic font-bold mb-8 text-center">
+              <h3 className="text-2xl font-bold mb-8 text-center text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
                 Players
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredPlayers.map((player) => (
-                  <Link href={`/player/${player.id}`} key={player.id}>
-                    <div className="player-card animate-float" style={{ animationDelay: `${Math.random() * 2}s` }}>
-                      <div className="player-image">
-                        <Image
-                          src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`}
-                          alt={player.name}
-                          width={128}
-                          height={128}
-                          className="object-cover w-full h-full"
-                          onError={handleImageError}
-                        />
+                {sortedPlayers.map((player) => (
+                  <Link href={`/player/${player.id}`} key={player.id} className="no-underline">
+                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden transform transition-all hover:scale-105">
+                      <div className="relative">
+                        <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                          <Image
+                            src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`}
+                            alt={player.name}
+                            width={300}
+                            height={300}
+                            className="object-cover w-full h-full"
+                            onError={handleImageError}
+                          />
+                        </div>
+                        
+                        {/* Jersey Number Badge removed */}
                       </div>
-                      <h3 className="text-xl font-futuristic font-bold mb-1">{player.name}</h3>
-                      <p className="text-sm opacity-80 mb-2">{player.position}</p>
-                      <div className="mt-2 px-4 py-1 rounded-full bg-white/10 dark:bg-black/30 text-sm font-medium">
-                        Jersey #{player.jersey_number}
+                      
+                      <div className="p-4">
+                        <h3 className="text-xl font-bold mb-1 text-gray-800 dark:text-white">{player.name}</h3>
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{player.position}</p>
+                          <div className="px-2 py-1 text-xs rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                            {player.height} • {player.weight}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </Link>
                 ))}
                 
-                {filteredPlayers.length === 0 && (
+                {sortedPlayers.length === 0 && (
                   <div className="col-span-3 text-center py-12">
                     <p className="text-xl font-futuristic">No players found for this team.</p>
                   </div>

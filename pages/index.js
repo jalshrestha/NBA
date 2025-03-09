@@ -6,19 +6,23 @@ import ThemeToggle from '../components/ThemeToggle';
 import Standings from '../components/Standings';
 import axios from 'axios';
 
+// Get API URL from environment variables
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+
 export default function Home() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showStandings, setShowStandings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [imageErrors, setImageErrors] = useState({});
 
   useEffect(() => {
     // Fetch teams from API
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5001/api/teams');
+        const response = await axios.get(`${API_URL}/teams`);
         setTeams(response.data);
         setLoading(false);
       } catch (err) {
@@ -35,6 +39,14 @@ export default function Home() {
   const filteredTeams = teams.filter(team => 
     team.full_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Handle image loading errors
+  const handleImageError = (teamId) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [teamId]: true
+    }));
+  };
 
   return (
     <div className="min-h-screen animated-bg">
@@ -114,14 +126,14 @@ export default function Home() {
                       <div className="team-logo-container">
                         <div className="relative w-24 h-24 mb-2">
                           <Image
-                            src={`https://cdn.nba.com/logos/nba/${team.id}/primary/L/logo.svg`}
+                            src={imageErrors[team.id] ? 
+                              '/images/fallback-logo.png' : 
+                              `https://cdn.nba.com/logos/nba/${team.id}/primary/L/logo.svg`
+                            }
                             alt={team.full_name}
                             fill
                             className="team-logo object-contain"
-                            onError={(e) => {
-                              // Fallback image if logo not found
-                              e.target.src = 'https://cdn.nba.com/logos/nba/fallback.png';
-                            }}
+                            onError={() => handleImageError(team.id)}
                           />
                         </div>
                         <h3 className="text-sm md:text-base font-futuristic text-center">
