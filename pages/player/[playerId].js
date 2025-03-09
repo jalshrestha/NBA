@@ -110,11 +110,11 @@ export default function PlayerPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-gray-900 dark:to-blue-900 animate-gradient-shift">
       <Head>
         <title>
-          {player ? `${player.name} | NBA Stats Tracker` : 'Player | NBA Stats Tracker'}
+          {player ? `${player.name} | NBAPRO` : 'Player | NBAPRO'}
         </title>
         <meta 
           name="description" 
-          content={player ? `Statistics for ${player.name}` : 'NBA player statistics'} 
+          content={player ? `Professional statistics for ${player.name} - NBAPRO` : 'Professional NBA player statistics - NBAPRO'} 
         />
       </Head>
 
@@ -122,9 +122,9 @@ export default function PlayerPage() {
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <Link href="/" className="no-underline">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-wider bg-clip-text text-transparent 
-                        bg-gradient-to-r from-blue-500 to-purple-600 animate-pulse-slow">
-              NBASTATS
+            <h1 className="text-3xl md:text-5xl font-futuristic font-bold tracking-wider bg-clip-text text-transparent 
+                        bg-gradient-to-r from-neon-blue to-neon-purple animate-pulse-slow">
+              NBAPRO
             </h1>
           </Link>
 
@@ -588,7 +588,7 @@ export default function PlayerPage() {
 
         {/* Footer */}
         <footer className="mt-16 py-8 text-center text-sm opacity-70">
-          <p>© {new Date().getFullYear()} NBA Stats Tracker | Premium Design</p>
+          <p>© {new Date().getFullYear()} NBAPRO</p>
         </footer>
       </div>
     </div>

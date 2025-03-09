@@ -3,6 +3,11 @@ from nba_api.stats.endpoints import playercareerstats, teamyearbyyearstats, comm
 import pandas as pd
 import pickle
 import time
+import os
+
+# Define data directory
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
 
 def fetch_team_data(team):
     """Fetch data for a single team and its players"""
@@ -58,46 +63,32 @@ def fetch_team_data(team):
     
     return player_stats, team_stats
 
-def main():
-    # Get all NBA teams
+def fetch_all_data():
+    """Fetch data for all NBA teams and players"""
     all_teams = teams.get_teams()
-    
-    # Initialize dictionaries for all data
     all_player_stats = {}
     all_team_stats = {}
     
-    # Track progress
-    total_teams = len(all_teams)
-    
-    print(f"Starting to fetch data for {total_teams} NBA teams...")
-    
-    # Process each team
-    for i, team in enumerate(all_teams, 1):
-        print(f"\nProcessing team {i}/{total_teams}: {team['full_name']}")
-        print("-" * 50)
-        
+    for team in all_teams:
         player_stats, team_stats = fetch_team_data(team)
-        
-        # Update our complete dictionaries
         all_player_stats.update(player_stats)
         all_team_stats.update(team_stats)
-        
-        # Save progress after each team (in case of crashes)
-        print(f"Saving progress after {team['full_name']}...")
-        with open('player_data.pkl', 'wb') as f:
-            pickle.dump(all_player_stats, f)
-        with open('team_data.pkl', 'wb') as f:
-            pickle.dump(all_team_stats, f)
-        
-        print(f"Completed {i}/{total_teams} teams")
-        print(f"Players in database: {len(all_player_stats)}")
-        print(f"Teams in database: {len(all_team_stats)}")
-        
-        # Short break between teams
-        time.sleep(2)
     
-    print("\nAll data fetched and saved successfully!")
-    print(f"Final count - Players: {len(all_player_stats)}, Teams: {len(all_team_stats)}")
+    return all_player_stats, all_team_stats
+
+def save_data(player_stats, team_stats):
+    """Save the fetched data to pickle files"""
+    player_file = os.path.join(DATA_DIR, 'player_data.pkl')
+    team_file = os.path.join(DATA_DIR, 'team_data.pkl')
+    
+    with open(player_file, 'wb') as f:
+        pickle.dump(player_stats, f)
+    
+    with open(team_file, 'wb') as f:
+        pickle.dump(team_stats, f)
+    
+    print(f"Data saved to {player_file} and {team_file}")
 
 if __name__ == "__main__":
-    main()
+    player_stats, team_stats = fetch_all_data()
+    save_data(player_stats, team_stats)

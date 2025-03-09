@@ -1,5 +1,5 @@
 {
-  "name": "nba-stats-tracker",
+  "name": "NBAPRO",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "api": "cd api && ./start.sh",
+    "dev:all": "concurrently \"npm run dev\" \"npm run api\"",
     "deploy": "next build && touch out/.nojekyll"
   },
   "dependencies": {
@@ -20,6 +22,7 @@
     "tailwindcss": "^3.3.0"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "eslint": "^8.0.0",
     "eslint-config-next": "13.5.8"
   }

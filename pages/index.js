@@ -51,8 +51,8 @@ export default function Home() {
   return (
     <div className="min-h-screen animated-bg">
       <Head>
-        <title>NBA Stats Tracker | Futuristic NBA Statistics</title>
-        <meta name="description" content="A futuristic NBA statistics tracker app" />
+        <title>NBAPRO | Professional NBA Statistics</title>
+        <meta name="description" content="A professional NBA statistics tracking application" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -61,9 +61,9 @@ export default function Home() {
         <header className="flex items-center justify-between mb-12">
           <div className="flex items-center space-x-4">
             <Link href="/" className="no-underline">
-              <h1 className="text-3xl md:text-4xl font-futuristic font-bold tracking-wider bg-clip-text text-transparent 
+              <h1 className="text-3xl md:text-5xl font-futuristic font-bold tracking-wider bg-clip-text text-transparent 
                           bg-gradient-to-r from-neon-blue to-neon-purple animate-pulse-slow">
-                NBASTATS
+                NBAPRO
               </h1>
             </Link>
             
@@ -157,7 +157,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-16 py-8 text-center text-sm opacity-70">
-          <p>© {new Date().getFullYear()} NBA Stats Tracker | Futuristic Design</p>
+          <p>© {new Date().getFullYear()} NBAPRO</p>
         </footer>
       </div>
     </div>
