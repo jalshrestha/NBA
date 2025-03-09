@@ -5,8 +5,9 @@ const nextConfig = {
     domains: ['cdn.nba.com'],
     unoptimized: true,
   },
-  basePath: process.env.NODE_ENV === 'production' ? '/NBA' : '',
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/NBA/' : '',
+  // Only use basePath and assetPrefix for GitHub Pages, not for Vercel
+  basePath: process.env.GITHUB_PAGES === 'true' ? '/NBA' : '',
+  assetPrefix: process.env.GITHUB_PAGES === 'true' ? '/NBA/' : '',
 }
 
 module.exports = nextConfig 
