@@ -1,0 +1,48 @@
+{
+  "api": {
+    "baseUrl": "https://api.search.brave.com/res/v1",
+    "endpoints": {
+      "search": "/web/search",
+      "local": "/local/pois",
+      "news": "/news/search",
+      "images": "/images/search"
+    },
+    "authentication": {
+      "type": "header",
+      "headerName": "X-Subscription-Token",
+      "tokenEnvVar": "BRAVE_API_KEY",
+      "clientIdEnvVar": "BRAVE_CLIENT_ID"
+    },
+    "permissions": [
+      "read:search",
+      "read:local",
+      "read:news",
+      "read:images"
+    ]
+  },
+  "config": {
+    "timeout": 10000,
+    "retries": 3,
+    "retryDelay": 1000
+  },
+  "features": {
+    "caching": {
+      "enabled": true,
+      "ttl": 300
+    },
+    "analytics": {
+      "enabled": true,
+      "trackQueries": true,
+      "trackResponses": false,
+      "anonymizeData": true
+    },
+    "rateLimit": {
+      "enabled": true,
+      "maxRequestsPerMinute": 10,
+      "queueExcess": true
+    }
+  },
+  "version": "1.0.0",
+  "name": "brave-search-api-client",
+  "description": "MCP configuration for Brave Search API client"
+} 

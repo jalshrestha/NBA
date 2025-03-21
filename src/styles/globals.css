@@ -1,0 +1,232 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 240, 244, 255;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 10, 10, 30;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Modern UI Elements */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-all duration-300;
+}
+
+.card:hover {
+  @apply shadow-xl transform -translate-y-1;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-colors duration-300;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
+}
+
+/* NBA Team Colors */
+.team-colors {
+  --team-primary: #1d428a;
+  --team-secondary: #ffc72c;
+}
+
+/* Team-specific styling */
+.team-atl { --team-primary: #E03A3E; --team-secondary: #C1D32F; }
+.team-bos { --team-primary: #007A33; --team-secondary: #BA9653; }
+.team-bkn { --team-primary: #000000; --team-secondary: #FFFFFF; }
+.team-cha { --team-primary: #1D1160; --team-secondary: #00788C; }
+.team-chi { --team-primary: #CE1141; --team-secondary: #000000; }
+.team-cle { --team-primary: #860038; --team-secondary: #041E42; }
+.team-dal { --team-primary: #00538C; --team-secondary: #002B5E; }
+.team-den { --team-primary: #0E2240; --team-secondary: #FEC524; }
+.team-det { --team-primary: #C8102E; --team-secondary: #1D42BA; }
+.team-gsw { --team-primary: #1D428A; --team-secondary: #FFC72C; }
+.team-hou { --team-primary: #CE1141; --team-secondary: #000000; }
+.team-ind { --team-primary: #002D62; --team-secondary: #FDBB30; }
+.team-lac { --team-primary: #C8102E; --team-secondary: #1D428A; }
+.team-lal { --team-primary: #552583; --team-secondary: #FDB927; }
+.team-mem { --team-primary: #5D76A9; --team-secondary: #12173F; }
+.team-mia { --team-primary: #98002E; --team-secondary: #F9A01B; }
+.team-mil { --team-primary: #00471B; --team-secondary: #EEE1C6; }
+.team-min { --team-primary: #0C2340; --team-secondary: #236192; }
+.team-nop { --team-primary: #0C2340; --team-secondary: #C8102E; }
+.team-nyk { --team-primary: #006BB6; --team-secondary: #F58426; }
+.team-okc { --team-primary: #007AC1; --team-secondary: #EF3B24; }
+.team-orl { --team-primary: #0077C0; --team-secondary: #C4CED4; }
+.team-phi { --team-primary: #006BB6; --team-secondary: #ED174C; }
+.team-phx { --team-primary: #1D1160; --team-secondary: #E56020; }
+.team-por { --team-primary: #E03A3E; --team-secondary: #000000; }
+.team-sac { --team-primary: #5A2D81; --team-secondary: #63727A; }
+.team-sas { --team-primary: #C4CED4; --team-secondary: #000000; }
+.team-tor { --team-primary: #CE1141; --team-secondary: #000000; }
+.team-uta { --team-primary: #002B5C; --team-secondary: #00471B; }
+.team-was { --team-primary: #002B5C; --team-secondary: #E31837; }
+
+/* Team color utility classes */
+.team-bg-primary {
+  background-color: var(--team-primary);
+}
+
+.team-bg-secondary {
+  background-color: var(--team-secondary);
+}
+
+.team-text-primary {
+  color: var(--team-primary);
+}
+
+.team-text-secondary {
+  color: var(--team-secondary);
+}
+
+.team-border-primary {
+  border-color: var(--team-primary);
+}
+
+.team-border-secondary {
+  border-color: var(--team-secondary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.5s ease-out;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  @apply w-8 h-8 border-4 border-blue-200 rounded-full animate-spin;
+  border-top-color: #3B82F6;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply transition-colors duration-300 ease-in-out;
+  }
+  
+  .dark {
+    @apply bg-gradient-dark text-white;
+  }
+  
+  .light {
+    @apply bg-gradient-light text-gray-800;
+  }
+}
+
+@layer components {
+  .nba-btn {
+    @apply px-4 py-2 font-futuristic font-bold tracking-wider uppercase transition-all duration-300 
+           border-2 border-transparent rounded-lg hover:scale-105 focus:outline-none;
+  }
+  
+  .nba-btn-primary {
+    @apply nba-btn bg-neon-blue text-white hover:shadow-neon-blue dark:hover:shadow-neon-blue;
+  }
+  
+  .team-logo {
+    @apply transition-all duration-300 rounded-full hover:scale-110 cursor-pointer;
+  }
+  
+  .team-logo-container {
+    @apply flex flex-col items-center justify-center p-4 transition-all duration-300 rounded-xl
+           hover:bg-white/10 dark:hover:bg-black/30;
+  }
+  
+  .dark .team-logo-container:hover {
+    @apply shadow-neon-blue;
+  }
+  
+  .light .team-logo-container:hover {
+    @apply shadow-neon-purple;
+  }
+  
+  .player-card {
+    @apply flex flex-col items-center p-6 transition-all duration-300 rounded-xl
+           bg-white/80 dark:bg-black/30 hover:shadow-lg;
+  }
+  
+  .dark .player-card:hover {
+    @apply shadow-neon-blue;
+  }
+  
+  .light .player-card:hover {
+    @apply shadow-neon-purple;
+  }
+  
+  .player-image {
+    @apply w-32 h-32 mb-4 overflow-hidden transition-all duration-300 border-4 border-gray-300 rounded-full
+           dark:border-gray-700 hover:scale-105;
+  }
+  
+  .dark .player-image {
+    @apply hover:border-neon-blue;
+  }
+  
+  .light .player-image {
+    @apply hover:border-neon-purple;
+  }
+}
+
+/* Animated background for dark mode */
+.dark .animated-bg {
+  background: linear-gradient(-45deg, #111827, #0a0a1e, #1a103c, #0d253f);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+/* Animated background for light mode */
+.light .animated-bg {
+  background: linear-gradient(-45deg, #e0e7ff, #bfdbfe, #ddd6fe, #c7d2fe);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+} 

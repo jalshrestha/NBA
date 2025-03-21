@@ -7,18 +7,18 @@ import ThemeToggle from '../../components/ThemeToggle';
 import axios from 'axios';
 
 // Get API URL from environment variables
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api';
 
 export default function TeamPage() {
   const router = useRouter();
   const { teamId } = router.query;
   
-  const [players, setPlayers] = useState([]);
-  const [team, setTeam] = useState(null);
+  const [teamData, setTeamData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchTeamData = async (forceRefresh = false) => {
     if (!teamId) return;
@@ -30,26 +30,12 @@ export default function TeamPage() {
         setRefreshing(true);
       }
       
-      // First fetch team details from the teams endpoint
-      const teamsResponse = await axios.get(`${API_URL}/teams`);
-      const teamData = teamsResponse.data.find(t => t.id === parseInt(teamId));
+      // Fetch team data and roster from the new API endpoint
+      const queryParam = forceRefresh ? '?force_refresh=true' : '';
+      const response = await axios.get(`${API_URL}/teams/${teamId}${queryParam}`);
       
-      if (!teamData) {
-        setError('Team not found');
-        setLoading(false);
-        if (forceRefresh) setRefreshing(false);
-        return;
-      }
-      
-      setTeam(teamData);
-      
-      // Then fetch players for this team with force refresh parameter if needed
-      const endpoint = forceRefresh 
-        ? `${API_URL}/players/team/${teamId}?force_refresh=true` 
-        : `${API_URL}/players/team/${teamId}`;
-      
-      const playersResponse = await axios.get(endpoint);
-      setPlayers(playersResponse.data);
+      setTeamData(response.data);
+      setLastUpdated(response.data.last_updated);
       
       setLoading(false);
       if (forceRefresh) setRefreshing(false);
@@ -65,6 +51,11 @@ export default function TeamPage() {
     // Only fetch when we have a teamId (after hydration)
     if (!teamId) return;
     fetchTeamData();
+    
+    // Set up polling for updates
+    const intervalId = setInterval(() => fetchTeamData(), 5 * 60 * 1000); // Every 5 minutes
+    
+    return () => clearInterval(intervalId);
   }, [teamId]);
 
   // Function to handle refreshing team data
@@ -77,25 +68,30 @@ export default function TeamPage() {
     e.target.src = 'https://cdn.nba.com/headshots/nba/latest/1040x760/logoman.png';
   };
 
-  // Filter players based on search query
-  const filteredPlayers = players.filter(player => 
-    player.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Sort players by name instead of jersey number
+  // Filter and sort players based on search query
+  const filteredPlayers = teamData?.roster 
+    ? teamData.roster.filter(player => 
+        player.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+    
+  // Sort players by name
   const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     return a.name.localeCompare(b.name);
   });
+
+  // Access team info
+  const team = teamData?.team_info || null;
 
   return (
     <div className="min-h-screen animated-bg">
       <Head>
         <title>
-          {team ? `${team.full_name} | NBA Stats Tracker` : 'Team | NBA Stats Tracker'}
+          {team ? `${team.name} | NBA Stats Tracker` : 'Team | NBA Stats Tracker'}
         </title>
         <meta 
           name="description" 
-          content={team ? `Statistics for ${team.full_name} players` : 'NBA team statistics'} 
+          content={team ? `Statistics for ${team.name} players` : 'NBA team statistics'} 
         />
       </Head>
 
@@ -153,21 +149,25 @@ export default function TeamPage() {
                   <div className="relative w-32 h-32 md:w-40 md:h-40 mb-4 md:mb-0 md:mr-8">
                     <Image
                       src={`https://cdn.nba.com/logos/nba/${team.id}/primary/L/logo.svg`}
-                      alt={team.full_name}
+                      alt={team.name}
                       fill
                       className="object-contain"
                       onError={(e) => {
-                        e.target.src = 'https://cdn.nba.com/logos/nba/fallback.png';
+                        e.target.src = '/images/fallback-logo.png';
                       }}
                     />
                   </div>
                   <div className="text-center md:text-left">
                     <h2 className="text-3xl md:text-5xl font-bold mb-2 text-gray-800 dark:text-white">
-                      {team.full_name}
+                      {team.name}
                     </h2>
-                    <p className="text-lg opacity-80">
-                      {team.city}, {team.state} • Est. {team.year_founded}
-                    </p>
+                    <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-lg opacity-80">
+                      <p>{team.city}</p>
+                      <p className="hidden md:block">•</p>
+                      <p>{team.conference} Conference</p>
+                      <p className="hidden md:block">•</p>
+                      <p>Record: {team.wins}-{team.losses}</p>
+                    </div>
                   </div>
                 </div>
                 
@@ -183,22 +183,47 @@ export default function TeamPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Refreshing Team Data...
+                      Refreshing...
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                       </svg>
-                      Refresh Team Data
+                      Refresh Data
                     </>
                   )}
                 </button>
               </div>
 
+              {/* Team Stats Card */}
+              <div className="mb-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-900 dark:to-indigo-900 text-white p-4">
+                  <h3 className="text-xl font-futuristic font-bold">Team Stats</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Win %</p>
+                    <p className="text-2xl font-bold">{(team.win_pct * 100).toFixed(1)}%</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Conference Rank</p>
+                    <p className="text-2xl font-bold">{team.conf_rank}</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Division Rank</p>
+                    <p className="text-2xl font-bold">{team.div_rank}</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Last Updated</p>
+                    <p className="text-sm font-medium">{new Date(lastUpdated).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Players Grid */}
               <h3 className="text-2xl font-bold mb-8 text-center text-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                Players
+                Team Roster
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -208,16 +233,14 @@ export default function TeamPage() {
                       <div className="relative">
                         <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
                           <Image
-                            src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`}
+                            src={`https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`}
                             alt={player.name}
-                            width={300}
-                            height={300}
+                            width={260}
+                            height={190}
                             className="object-cover w-full h-full"
                             onError={handleImageError}
                           />
                         </div>
-                        
-                        {/* Jersey Number Badge removed */}
                       </div>
                       
                       <div className="p-4">
@@ -225,9 +248,27 @@ export default function TeamPage() {
                         <div className="flex justify-between items-center">
                           <p className="text-sm text-gray-600 dark:text-gray-300">{player.position}</p>
                           <div className="px-2 py-1 text-xs rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                            {player.height} • {player.weight}
+                            {player.height || 'N/A'} • {player.weight || 'N/A'}
                           </div>
                         </div>
+                        
+                        {/* Player Stats Preview */}
+                        {player.points && (
+                          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-xs">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-1 rounded">
+                              <p className="font-bold">{player.points.toFixed(1)}</p>
+                              <p>PPG</p>
+                            </div>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-1 rounded">
+                              <p className="font-bold">{player.rebounds.toFixed(1)}</p>
+                              <p>RPG</p>
+                            </div>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-1 rounded">
+                              <p className="font-bold">{player.assists.toFixed(1)}</p>
+                              <p>APG</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -242,7 +283,7 @@ export default function TeamPage() {
               
               {/* Back Button */}
               <div className="mt-12 text-center">
-                <Link href="/" className="nba-btn-primary inline-block">
+                <Link href="/" className="inline-block px-6 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-neon-blue to-neon-purple hover:from-neon-blue/90 hover:to-neon-purple/90 transition-colors duration-200 shadow-lg">
                   Back to Teams
                 </Link>
               </div>

@@ -27,10 +27,10 @@
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/player/[playerId]": [
+    "/stats": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/player/[playerId].js"
+      "static/chunks/pages/stats.js"
     ],
     "/team/[teamId]": [
       "static/chunks/webpack.js",

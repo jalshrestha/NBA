@@ -3,13 +3,16 @@ module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',
+    './src/pages/**/*.{js,ts,jsx,tsx}',
+    './src/components/**/*.{js,ts,jsx,tsx}',
+    './src/app/**/*.{js,ts,jsx,tsx}',
   ],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        'neon-blue': '#00f3ff',
-        'neon-purple': '#7c4dff',
+        'neon-blue': '#4F6BFF',
+        'neon-purple': '#B54FFF',
         'neon-pink': '#ff00ff',
         'dark-bg': '#0a0a1e',
         'light-bg': '#f0f4ff',
@@ -22,6 +25,10 @@ module.exports = {
           400: '#9f7aea',
           500: '#805ad5',
           600: '#6b46c1',
+        },
+        navy: {
+          800: '#162756',
+          900: '#0c1733',
         },
       },
       fontFamily: {
